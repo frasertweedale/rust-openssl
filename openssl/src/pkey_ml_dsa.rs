@@ -7,8 +7,9 @@
 //! [FIPS 204]: https://csrc.nist.gov/pubs/fips/204/final
 
 use crate::error::ErrorStack;
-use crate::ossl_param::OsslParamArray;
-use crate::pkey::{Private, Public};
+use crate::ossl_param::{OsslParamArray, OsslParamBuilder};
+use crate::pkey::{Private, Public, PKey};
+use crate::pkey_ctx::PkeyCtx;
 use foreign_types::ForeignType;
 use std::ffi::CStr;
 use std::marker::PhantomData;
@@ -88,6 +89,27 @@ impl PKeyMlDsaParams<Private> {
     }
 }
 
+/// Returns the Private ML-DSA PKey from the provided seed.
+#[cfg(ossl350)]
+pub fn new_from_seed(variant: Variant, seed: &[u8]) -> Result<PKey<Private>, ErrorStack> {
+    let mut bld = OsslParamBuilder::new()?;
+    bld.add_octet_string(OSSL_PKEY_PARAM_SEED, seed)?;
+    let mut ctx = PkeyCtx::new_from_name(None, variant.as_str(), None)?;
+    ctx.fromdata_init()?;
+    let params = bld.to_param()?;
+    unsafe {
+        let evp = crate::cvt_p(ffi::EVP_PKEY_new())?;
+        let pkey = PKey::from_ptr(evp);
+        crate::cvt(ffi::EVP_PKEY_fromdata(
+            ctx.as_ptr(),
+            &mut pkey.as_ptr(),
+            ffi::EVP_PKEY_KEYPAIR,
+            params.as_ptr(),
+        ))?;
+        Ok(pkey)
+    }
+}
+
 #[cfg(test)]
 mod tests {
 
@@ -100,28 +122,6 @@ mod tests {
         unsafe { CStr::from_bytes_with_nul_unchecked(b"message-encoding\0") };
     const OSSL_SIGNATURE_PARAM_DETERMINISTIC: &CStr =
         unsafe { CStr::from_bytes_with_nul_unchecked(b"deterministic\0") };
-
-    /// Returns the Private ML-DSA PKey from the provided seed.
-    fn new_from_seed(variant: Variant, seed: &[u8]) -> Result<PKey<Private>, ErrorStack> {
-        use crate::ossl_param::OsslParamBuilder;
-
-        let mut bld = OsslParamBuilder::new()?;
-        bld.add_octet_string(OSSL_PKEY_PARAM_SEED, seed)?;
-        let mut ctx = PkeyCtx::new_from_name(None, variant.as_str(), None)?;
-        ctx.fromdata_init()?;
-        let params = bld.to_param()?;
-        unsafe {
-            let evp = crate::cvt_p(ffi::EVP_PKEY_new())?;
-            let pkey = PKey::from_ptr(evp);
-            crate::cvt(ffi::EVP_PKEY_fromdata(
-                ctx.as_ptr(),
-                &mut pkey.as_ptr(),
-                ffi::EVP_PKEY_KEYPAIR,
-                params.as_ptr(),
-            ))?;
-            Ok(pkey)
-        }
-    }
 
     #[test]
     fn test_generate_ml_dsa_44() {

@@ -852,6 +852,15 @@ impl PKey<Private> {
             .map(|p| PKey::from_ptr(p))
         }
     }
+
+    /// Creates a private key from seed representation using a string keytype
+    #[cfg(ossl350)]
+    pub fn private_key_from_seed(
+        key_type: pkey_ml_dsa::Variant,
+        bytes: &[u8],
+    ) -> Result<PKey<Private>, ErrorStack> {
+        pkey_ml_dsa::new_from_seed(key_type, bytes)
+    }
 }
 
 impl PKey<Public> {
