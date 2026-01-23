@@ -231,6 +231,27 @@ where
         Ok(())
     }
 
+    /// Prepares the context for signature verification over a message
+    /// using the public key with params.
+    #[cfg(ossl350)]
+    #[corresponds(EVP_PKEY_verify_message_init)]
+    #[inline]
+    pub(crate) fn verify_message_init_with_params(
+        &mut self,
+        algo: &mut crate::signature::Signature,
+        params: crate::ossl_param::OsslParamArray,
+    ) -> Result<(), ErrorStack> {
+        unsafe {
+            cvt(ffi::EVP_PKEY_verify_message_init(
+                self.as_ptr(),
+                algo.as_ptr(),
+                params.as_ptr(),
+            ))?;
+        }
+
+        Ok(())
+    }
+
     /// Prepares the context for signature recovery using the public key.
     #[corresponds(EVP_PKEY_verify_recover_init)]
     #[inline]
@@ -383,11 +404,9 @@ where
     }
 
     /// Prepares the context for signing a message using the private key with params.
-    /// Used internally for testing.
     #[cfg(ossl350)]
     #[corresponds(EVP_PKEY_sign_message_init)]
     #[inline]
-    #[cfg(test)]
     pub(crate) fn sign_message_init_with_params(
         &mut self,
         algo: &mut crate::signature::Signature,

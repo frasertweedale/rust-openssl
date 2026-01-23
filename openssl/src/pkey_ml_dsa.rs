@@ -8,7 +8,7 @@
 
 use crate::error::ErrorStack;
 use crate::ossl_param::{OsslParamArray, OsslParamBuilder};
-use crate::pkey::{Private, Public, PKey};
+use crate::pkey::{HasPublic, PKey, Private, Public};
 use crate::pkey_ctx::PkeyCtx;
 use foreign_types::ForeignType;
 use std::ffi::CStr;
@@ -27,6 +27,9 @@ const MLDSA87_CSTR: &CStr = unsafe { CStr::from_bytes_with_nul_unchecked(b"ML-DS
 const MLDSA44_STR: &str = "ML-DSA-44";
 const MLDSA65_STR: &str = "ML-DSA-65";
 const MLDSA87_STR: &str = "ML-DSA-87";
+
+const OSSL_SIGNATURE_PARAM_CONTEXT_STRING: &CStr =
+    unsafe { CStr::from_bytes_with_nul_unchecked(b"context-string\0") };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum Variant {
@@ -108,6 +111,103 @@ pub fn new_from_seed(variant: Variant, seed: &[u8]) -> Result<PKey<Private>, Err
         ))?;
         Ok(pkey)
     }
+}
+
+/// Signs a message with ML-DSA using a context string.
+///
+/// ML-DSA supports signing with an optional context string as defined in FIPS 204.
+/// The context string provides domain separation and additional binding to the signature.
+///
+/// # Arguments
+///
+/// * `key` - The ML-DSA private key
+/// * `variant` - The ML-DSA variant (44, 65, or 87)
+/// * `message` - The message to sign
+/// * `context` - The context string (domain separator)
+///
+/// # Returns
+///
+/// Returns the signature as a Vec<u8>
+///
+/// # Example
+///
+/// ```no_run
+/// use openssl::pkey::PKey;
+/// use openssl::pkey_ml_dsa::{self, Variant};
+///
+/// let key = PKey::generate_ml_dsa(Variant::MlDsa44).unwrap();
+/// let message = b"Hello, World!";
+/// let context = b"example.com/api/v1";
+/// let signature = pkey_ml_dsa::sign_with_context(&key, Variant::MlDsa44, message, context).unwrap();
+/// ```
+#[cfg(ossl350)]
+pub fn sign_with_context(
+    key: &PKey<Private>,
+    variant: Variant,
+    message: &[u8],
+    context: &[u8],
+) -> Result<Vec<u8>, ErrorStack> {
+    use crate::signature::Signature;
+
+    let mut algo = Signature::for_ml_dsa(variant)?;
+    let mut params = OsslParamBuilder::new()?;
+    params.add_octet_string(OSSL_SIGNATURE_PARAM_CONTEXT_STRING, context)?;
+
+    let mut signature = Vec::new();
+    let mut ctx = PkeyCtx::new(key)?;
+    ctx.sign_message_init_with_params(&mut algo, params.to_param()?)?;
+    ctx.sign_to_vec(message, &mut signature)?;
+
+    Ok(signature)
+}
+
+/// Verifies a message signature with ML-DSA using a context string.
+///
+/// ML-DSA supports verifying signatures with an optional context string as defined in FIPS 204.
+/// The same context string used during signing must be provided for verification.
+///
+/// # Arguments
+///
+/// * `key` - The ML-DSA public key
+/// * `variant` - The ML-DSA variant (44, 65, or 87)
+/// * `message` - The message to verify
+/// * `signature` - The signature to verify
+/// * `context` - The context string (domain separator) used during signing
+///
+/// # Returns
+///
+/// Returns `Ok(true)` if the signature is valid, `Ok(false)` if invalid
+///
+/// # Example
+///
+/// ```no_run
+/// use openssl::pkey::PKey;
+/// use openssl::pkey_ml_dsa::{self, Variant};
+///
+/// let key = PKey::generate_ml_dsa(Variant::MlDsa44).unwrap();
+/// let message = b"Hello, World!";
+/// let context = b"example.com/api/v1";
+/// let signature = pkey_ml_dsa::sign_with_context(&key, Variant::MlDsa44, message, context).unwrap();
+/// let valid = pkey_ml_dsa::verify_with_context(&key, Variant::MlDsa44, message, &signature, context).unwrap();
+/// assert!(valid);
+/// ```
+#[cfg(ossl350)]
+pub fn verify_with_context(
+    key: &PKey<impl HasPublic>,
+    variant: Variant,
+    message: &[u8],
+    signature: &[u8],
+    context: &[u8],
+) -> Result<bool, ErrorStack> {
+    use crate::signature::Signature;
+
+    let mut algo = Signature::for_ml_dsa(variant)?;
+    let mut params = OsslParamBuilder::new()?;
+    params.add_octet_string(OSSL_SIGNATURE_PARAM_CONTEXT_STRING, context)?;
+
+    let mut ctx = PkeyCtx::new(key)?;
+    ctx.verify_message_init_with_params(&mut algo, params.to_param()?)?;
+    ctx.verify(message, signature)
 }
 
 #[cfg(test)]
@@ -242,5 +342,57 @@ mod tests {
         let valid = ctx.verify(&data[..], &signature);
         assert!(matches!(valid, Ok(true)));
         assert!(ErrorStack::get().errors().is_empty());
+    }
+
+    #[test]
+    fn test_sign_verify_with_context_ml_dsa_44() {
+        test_sign_verify_with_context(Variant::MlDsa44);
+    }
+
+    #[test]
+    fn test_sign_verify_with_context_ml_dsa_65() {
+        test_sign_verify_with_context(Variant::MlDsa65);
+    }
+
+    #[test]
+    fn test_sign_verify_with_context_ml_dsa_87() {
+        test_sign_verify_with_context(Variant::MlDsa87);
+    }
+
+    fn test_sign_verify_with_context(variant: Variant) {
+        let key = PKey::generate_ml_dsa(variant).unwrap();
+
+        let message = b"Some Crypto Text";
+        let bad_message = b"Some Crypto text";
+        let context = b"example.com/api/v1";
+        let wrong_context = b"example.com/api/v2";
+
+        // Sign with context
+        let signature = sign_with_context(&key, variant, message, context).unwrap();
+
+        // Verify with correct context and message
+        let valid = verify_with_context(&key, variant, message, &signature, context).unwrap();
+        assert!(valid);
+
+        // Verify with wrong message should fail (may return false or error)
+        let result = verify_with_context(&key, variant, bad_message, &signature, context);
+        assert!(matches!(result, Ok(false) | Err(_)));
+
+        // Verify with wrong context should fail (may return false or error)
+        let result = verify_with_context(&key, variant, message, &signature, wrong_context);
+        assert!(matches!(result, Ok(false) | Err(_)));
+
+        // Derive a new PKey with only the public bits and verify
+        let key_pub_bytes = key.raw_public_key().unwrap();
+        let key_pub =
+            PKey::<Public>::public_key_from_raw_bytes_ex(&key_pub_bytes, variant.as_str()).unwrap();
+
+        // Verify with public key and correct context
+        let valid = verify_with_context(&key_pub, variant, message, &signature, context).unwrap();
+        assert!(valid);
+
+        // Verify with public key and wrong context (may return false or error)
+        let result = verify_with_context(&key_pub, variant, message, &signature, wrong_context);
+        assert!(matches!(result, Ok(false) | Err(_)));
     }
 }
