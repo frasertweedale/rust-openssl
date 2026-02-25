@@ -7,6 +7,19 @@ use std::env;
 mod cfgs;
 
 fn main() {
+    // Skip systest for BoringSSL and AWS-LC as they have different APIs
+    if env::var("DEP_OPENSSL_BORINGSSL").is_ok() || env::var("DEP_OPENSSL_AWSLC").is_ok() {
+        println!("cargo:warning=Skipping systest for BoringSSL/AWS-LC");
+        // Create an empty all.rs file so the main.rs include doesn't fail
+        let out_dir = env::var("OUT_DIR").unwrap();
+        std::fs::write(
+            std::path::Path::new(&out_dir).join("all.rs"),
+            "// Skipped for BoringSSL/AWS-LC\nfn main() {}\n",
+        )
+        .expect("Failed to write all.rs");
+        return;
+    }
+
     let mut cfg = ctest::TestGenerator::new();
     let target = env::var("TARGET").unwrap();
 

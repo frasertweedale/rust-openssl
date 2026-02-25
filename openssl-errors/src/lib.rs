@@ -56,9 +56,12 @@ use std::ptr;
 #[doc(hidden)]
 pub mod export {
     pub use libc::{c_char, c_int};
+    #[cfg(not(any(boringssl, awslc)))]
     pub use openssl_sys::{
         init, ERR_get_next_error_library, ERR_load_strings, ERR_PACK, ERR_STRING_DATA,
     };
+    #[cfg(any(boringssl, awslc))]
+    pub use openssl_sys::{init, ERR_get_next_error_library};
     pub use std::borrow::Cow;
     pub use std::option::Option;
     pub use std::ptr::null;
@@ -72,7 +75,11 @@ pub trait Library {
 }
 
 cfg_if! {
-    if #[cfg(ossl300)] {
+    if #[cfg(any(boringssl, awslc))] {
+        // BoringSSL and AWS-LC don't support custom error libraries
+        // Provide stub types to allow compilation
+        type FunctionInner = c_int;
+    } else if #[cfg(ossl300)] {
         type FunctionInner = *const c_char;
     } else {
         type FunctionInner = c_int;
@@ -160,6 +167,15 @@ unsafe fn put_error_inner(
                 func,
             );
             openssl_sys::ERR_set_error(library, reason, ptr::null());
+        } else if #[cfg(any(boringssl, awslc))] {
+            // BoringSSL and AWS-LC use u32 for line parameter
+            openssl_sys::ERR_put_error(
+                library,
+                func,
+                reason,
+                file.as_ptr() as *const c_char,
+                line,
+            );
         } else {
             openssl_sys::ERR_put_error(
                 library,
@@ -242,6 +258,9 @@ macro_rules! put_error {
 /// Defines custom OpenSSL error libraries.
 ///
 /// The created libraries can be used with the `put_error!` macro to create custom OpenSSL errors.
+///
+/// Note: This macro is not functional with BoringSSL or AWS-LC.
+#[cfg(not(any(boringssl, awslc)))]
 #[macro_export]
 macro_rules! openssl_errors {
     ($(
@@ -313,8 +332,26 @@ macro_rules! openssl_errors {
     (@count) => { 0 };
 }
 
+/// Stub version of openssl_errors macro for BoringSSL/AWS-LC (non-functional).
+#[cfg(any(boringssl, awslc))]
+#[macro_export]
+macro_rules! openssl_errors {
+    ($($tt:tt)*) => {
+        compile_error!("Custom error libraries are not supported with BoringSSL or AWS-LC");
+    };
+}
+
 cfg_if! {
-    if #[cfg(ossl300)] {
+    if #[cfg(any(boringssl, awslc))] {
+        // Stub implementation for BoringSSL/AWS-LC
+        #[doc(hidden)]
+        #[macro_export]
+        macro_rules! __openssl_errors_helper {
+            ($($tt:tt)*) => {
+                compile_error!("Custom error libraries are not supported with BoringSSL or AWS-LC");
+            };
+        }
+    } else if #[cfg(ossl300)] {
         #[doc(hidden)]
         #[macro_export]
         macro_rules! __openssl_errors_helper {
@@ -384,5 +421,5 @@ cfg_if! {
             };
             (@func_value $n:expr, $func_str:expr) => {$n};
         }
-    }
-}
+    } // end of non-BoringSSL case
+} // end of cfg_if

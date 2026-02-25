@@ -633,7 +633,7 @@ extern "C" {
     );
 }
 
-#[cfg(not(ossl110))]
+#[cfg(all(not(ossl110), not(boringssl), not(awslc)))]
 pub unsafe fn SSL_session_reused(ssl: *mut SSL) -> c_int {
     SSL_ctrl(ssl, SSL_CTRL_GET_SESSION_REUSED, 0, ptr::null_mut()) as c_int
 }
