@@ -185,10 +185,22 @@ pub mod pkcs5;
 pub mod pkcs7;
 pub mod pkey;
 pub mod pkey_ctx;
+
+// ML-DSA: OpenSSL uses OSSL_PARAM API, BoringSSL uses native API
 #[cfg(ossl350)]
 pub mod pkey_ml_dsa;
+#[cfg(boringssl)]
+pub mod pkey_ml_dsa_boring;
+#[cfg(boringssl)]
+pub use pkey_ml_dsa_boring as pkey_ml_dsa;
+
+// ML-KEM: OpenSSL uses OSSL_PARAM API, BoringSSL uses native API
 #[cfg(ossl350)]
 pub mod pkey_ml_kem;
+#[cfg(boringssl)]
+pub mod pkey_ml_kem_boring;
+#[cfg(boringssl)]
+pub use pkey_ml_kem_boring as pkey_ml_kem;
 #[cfg(ossl300)]
 pub mod provider;
 pub mod rand;

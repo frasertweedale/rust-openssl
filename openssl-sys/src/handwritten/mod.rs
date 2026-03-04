@@ -27,6 +27,10 @@ pub use self::pkcs7::*;
 #[cfg(libressl)]
 pub use self::poly1305::*;
 pub use self::provider::*;
+#[cfg(boringssl)]
+pub use self::mldsa::*;
+#[cfg(boringssl)]
+pub use self::mlkem::*;
 pub use self::rand::*;
 pub use self::rsa::*;
 pub use self::safestack::*;
@@ -71,6 +75,10 @@ mod pkcs7;
 #[cfg(libressl)]
 mod poly1305;
 mod provider;
+#[cfg(boringssl)]
+mod mldsa;
+#[cfg(boringssl)]
+mod mlkem;
 mod rand;
 mod rsa;
 mod safestack;

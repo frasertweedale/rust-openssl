@@ -23,6 +23,11 @@ mod boringssl {
     #[cfg(not(feature = "unstable_boringssl"))]
     include!(concat!(env!("OUT_DIR"), "/bindgen.rs"));
 
+    #[macro_use]
+    mod macros;
+    mod handwritten;
+    pub use self::handwritten::*;
+
     // BoringSSL does not require initialization.
     pub fn init() {}
 }
