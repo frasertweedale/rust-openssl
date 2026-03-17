@@ -192,8 +192,9 @@ pub mod pkey_ml_kem;
 /// Unified ML-DSA API that works with both OpenSSL and BoringSSL
 #[cfg(any(ossl350, boringssl))]
 pub mod ml_dsa;
-#[cfg(ossl350)]
-pub mod pkey_ml_kem;
+/// Unified ML-KEM API that works with both OpenSSL and BoringSSL
+#[cfg(any(ossl350, boringssl))]
+pub mod ml_kem;
 #[cfg(ossl300)]
 pub mod provider;
 pub mod rand;

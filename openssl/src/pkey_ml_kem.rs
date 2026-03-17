@@ -55,21 +55,39 @@ impl Variant {
         }
     }
 
-    #[cfg(boringssl)]
-    fn public_key_bytes(&self) -> usize {
+    /// Returns the size of the public key in bytes for this variant.
+    pub fn public_key_bytes(&self) -> usize {
         match self {
+            #[cfg(boringssl)]
             Variant::MlKem512 => panic!("ML-KEM-512 not supported by BoringSSL"),
+            #[cfg(boringssl)]
             Variant::MlKem768 => ffi::mlkem::MLKEM768_PUBLIC_KEY_BYTES,
+            #[cfg(boringssl)]
             Variant::MlKem1024 => ffi::mlkem::MLKEM1024_PUBLIC_KEY_BYTES,
+            #[cfg(ossl350)]
+            Variant::MlKem512 => 800,
+            #[cfg(ossl350)]
+            Variant::MlKem768 => 1184,
+            #[cfg(ossl350)]
+            Variant::MlKem1024 => 1568,
         }
     }
 
-    #[cfg(boringssl)]
-    fn ciphertext_bytes(&self) -> usize {
+    /// Returns the size of the ciphertext in bytes for this variant.
+    pub fn ciphertext_bytes(&self) -> usize {
         match self {
+            #[cfg(boringssl)]
             Variant::MlKem512 => panic!("ML-KEM-512 not supported by BoringSSL"),
+            #[cfg(boringssl)]
             Variant::MlKem768 => ffi::mlkem::MLKEM768_CIPHERTEXT_BYTES,
+            #[cfg(boringssl)]
             Variant::MlKem1024 => ffi::mlkem::MLKEM1024_CIPHERTEXT_BYTES,
+            #[cfg(ossl350)]
+            Variant::MlKem512 => 768,
+            #[cfg(ossl350)]
+            Variant::MlKem768 => 1088,
+            #[cfg(ossl350)]
+            Variant::MlKem1024 => 1568,
         }
     }
 }
