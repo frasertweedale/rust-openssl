@@ -187,6 +187,9 @@ pub mod pkey;
 pub mod pkey_ctx;
 #[cfg(any(ossl350, boringssl))]
 pub mod pkey_ml_dsa;
+/// Unified ML-DSA API that works with both OpenSSL and BoringSSL
+#[cfg(any(ossl350, boringssl))]
+pub mod ml_dsa;
 #[cfg(ossl300)]
 pub mod provider;
 pub mod rand;

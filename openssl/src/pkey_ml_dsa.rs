@@ -81,21 +81,39 @@ impl Variant {
         }
     }
 
-    #[cfg(boringssl)]
-    fn public_key_bytes(&self) -> usize {
+    /// Returns the size of the public key in bytes for this variant.
+    pub fn public_key_bytes(&self) -> usize {
         match self {
+            #[cfg(boringssl)]
             Variant::MlDsa44 => ffi::mldsa::MLDSA44_PUBLIC_KEY_BYTES,
+            #[cfg(boringssl)]
             Variant::MlDsa65 => ffi::mldsa::MLDSA65_PUBLIC_KEY_BYTES,
+            #[cfg(boringssl)]
             Variant::MlDsa87 => ffi::mldsa::MLDSA87_PUBLIC_KEY_BYTES,
+            #[cfg(ossl350)]
+            Variant::MlDsa44 => 1312,
+            #[cfg(ossl350)]
+            Variant::MlDsa65 => 1952,
+            #[cfg(ossl350)]
+            Variant::MlDsa87 => 2592,
         }
     }
 
-    #[cfg(boringssl)]
-    fn signature_bytes(&self) -> usize {
+    /// Returns the size of the signature in bytes for this variant.
+    pub fn signature_bytes(&self) -> usize {
         match self {
+            #[cfg(boringssl)]
             Variant::MlDsa44 => ffi::mldsa::MLDSA44_SIGNATURE_BYTES,
+            #[cfg(boringssl)]
             Variant::MlDsa65 => ffi::mldsa::MLDSA65_SIGNATURE_BYTES,
+            #[cfg(boringssl)]
             Variant::MlDsa87 => ffi::mldsa::MLDSA87_SIGNATURE_BYTES,
+            #[cfg(ossl350)]
+            Variant::MlDsa44 => 2420,
+            #[cfg(ossl350)]
+            Variant::MlDsa65 => 3309,
+            #[cfg(ossl350)]
+            Variant::MlDsa87 => 4627,
         }
     }
 }
