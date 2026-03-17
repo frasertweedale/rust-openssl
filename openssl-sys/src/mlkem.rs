@@ -119,4 +119,27 @@ extern "C" {
         ciphertext_len: size_t,
         private_key: *const MLKEM1024_private_key,
     ) -> c_int;
+
+    // CBB (Create Byte Builder) functions for marshaling
+    pub fn CBB_init(cbb: *mut CBB, initial_capacity: size_t) -> c_int;
+    pub fn CBB_cleanup(cbb: *mut CBB);
+    pub fn CBB_data(cbb: *const CBB) -> *const u8;
+    pub fn CBB_len(cbb: *const CBB) -> size_t;
+
+    // Marshal public key functions
+    pub fn MLKEM768_marshal_public_key(
+        out: *mut CBB,
+        public_key: *const MLKEM768_public_key,
+    ) -> c_int;
+
+    pub fn MLKEM1024_marshal_public_key(
+        out: *mut CBB,
+        public_key: *const MLKEM1024_public_key,
+    ) -> c_int;
+}
+
+// CBB is an opaque structure for building byte strings
+#[repr(C)]
+pub struct CBB {
+    pub _opaque: [u8; 48], // Size from BoringSSL's bytestring.h
 }
