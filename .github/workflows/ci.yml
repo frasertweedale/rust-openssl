@@ -5,8 +5,9 @@ on:
     branches:
       - master
   push:
-    branches:
-      - master
+    # TEMPORARY: Run on push to any branch for testing
+    # Remove this and restore "branches: [master]" before merging
+  workflow_dispatch:
 
 env:
   RUSTFLAGS: -Dwarnings
